@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auth Application</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #f0f2f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background: #fff; width: 100%; max-width: 480px; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 32px; }
+    h2 { font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; text-align: center; }
+    p.subtitle { font-size: 14px; color: #666; margin-bottom: 24px; text-align: center; }
+    
+    .social-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 11px; margin-bottom: 10px; border-radius: 8px;
+      border: 1px solid #d0d7de; background: #fff; font-size: 14px; font-weight: 600;
+      color: #24292f; cursor: pointer; transition: 0.2s ease;
+    }
+    .social-btn:hover { background: #f6f8fa; border-color: #bbc0c4; }
+    
+    .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #8c8c8c; font-size: 13px; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #e1e4e8; }
+    .divider::before { margin-right: 12px; }
+    .divider::after { margin-left: 12px; }
+
+    .tabs { display: flex; margin-bottom: 18px; border-bottom: 1px solid #e1e4e8; }
+    .tab { flex: 1; text-align: center; padding: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; }
+    .tab.active { color: #0969da; border-bottom: 2px solid #0969da; }
+
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #24292f; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px; }
+    input:focus, select:focus { outline: none; border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.15); }
+
+    .submit-btn { width: 100%; padding: 11px; background: #0969da; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+    .submit-btn:hover { background: #0856b5; }
+    .logout-btn { width: 100%; padding: 11px; background: #cf222e; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 18px; }
+    .logout-btn:hover { background: #a40e26; }
+    
+    .status-msg { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: 13px; display: none; line-height: 1.4; word-break: break-all; }
+    .status-success { background: #dafbe1; color: #1a7f37; border: 1px solid #aceebb; }
+    .status-info { background: #ddf4ff; color: #0969da; border: 1px solid #b6e3ff; }
+    .status-error { background: #ffebe9; color: #cf222e; border: 1px solid #ff8182; }
+
+    .links-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; }
+    .links-row a { color: #0969da; text-decoration: none; font-weight: 500; cursor: pointer; }
+    .links-row a:hover { text-decoration: underline; }
+
+    /* Dashboard & Admin Styles */
+    .profile-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f2f5; font-size: 14px; }
+    .profile-label { color: #666; font-weight: 500; }
+    .profile-val { color: #1a1a1a; font-weight: 600; }
+    
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: capitalize; margin-left: 4px; }
+    .badge-user { background: #ddf4ff; color: #0969da; }
+    .badge-admin { background: #ffebe9; color: #cf222e; border: 1px solid #ffc1ba; }
+    .badge-provider { background: #dafbe1; color: #1a7f37; }
+    .badge-none { background: #f6f8fa; color: #8c8c8c; }
+
+    .admin-panel { margin-top: 20px; padding: 16px; background: #f6f8fa; border-radius: 8px; border: 1px solid #d0d7de; }
+    .admin-panel h3 { font-size: 15px; font-weight: 700; color: #24292f; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .user-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    .user-table th, .user-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #e1e4e8; }
+    .user-table th { background: #eaeef2; color: #57606a; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. LOGIN / SIGNUP CARD -->
+  <div class="card" id="auth-card">
+    <h2 id="card-title">Welcome Back</h2>
+    <p class="subtitle" id="card-subtitle">Choose your preferred login method</p>
+
+    <!-- Social Logins -->
+    <div id="social-buttons">
+      <button class="social-btn" onclick="loginOAuth('google')">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+        Continue with Google
+      </button>
+      <button class="social-btn" onclick="loginOAuth('github')">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#24292f" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        Continue with GitHub
+      </button>
+      <button class="social-btn" onclick="loginOAuth('facebook')">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        Continue with Facebook
+      </button>
+      <div class="divider">or</div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="auth-tabs">
+      <div id="tab-phone" class="tab active" onclick="switchTab('phone')">Phone OTP</div>
+      <div id="tab-email" class="tab" onclick="switchTab('email')">Email / Password</div>
+    </div>
+
+    <!-- 1. Phone Form -->
+    <div id="form-phone">
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="phone" placeholder="+91 9876543210" required>
+      </div>
+      <div class="form-group" id="otp-input-group" style="display:none;">
+        <label>Enter 6-digit OTP</label>
+        <input type="text" id="otp" placeholder="Enter OTP code">
+      </div>
+      <button class="submit-btn" id="btn-phone" onclick="handlePhoneAuth()">Send OTP</button>
+    </div>
+
+    <!-- 2. Email Form -->
+    <div id="form-email" style="display:none;">
+      <div class="form-group" id="group-name" style="display:none;">
+        <label>Full Name</label>
+        <input type="text" id="full-name" placeholder="John Doe">
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="name@example.com" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••" required>
+      </div>
+      <button class="submit-btn" id="btn-email-submit" onclick="handleEmailAuth()">Sign In</button>
+      
+      <div class="links-row">
+        <a id="link-forgot" onclick="showForgotPassword()">Forgot password?</a>
+        <a id="link-toggle-mode" onclick="toggleRegisterMode()">Need an account? Sign Up</a>
+      </div>
+    </div>
+
+    <!-- 3. Forgot Password Form -->
+    <div id="form-forgot" style="display:none;">
+      <div class="form-group">
+        <label>Enter Registered Email</label>
+        <input type="email" id="forgot-email" placeholder="name@example.com" required>
+      </div>
+      <button class="submit-btn" onclick="handleForgotPassword()">Send Reset Link</button>
+      <div class="links-row" style="justify-content:center; margin-top:14px;">
+        <a onclick="cancelForgotPassword()">&larr; Back to login</a>
+      </div>
+    </div>
+
+    <!-- 4. Reset Password Form -->
+    <div id="form-reset" style="display:none;">
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" id="new-password" placeholder="Min 6 characters" required>
+      </div>
+      <button class="submit-btn" onclick="handleResetPassword()">Update Password</button>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="status" class="status-msg"></div>
+  </div>
+
+  <!-- 2. LOGGED-IN DASHBOARD CARD -->
+  <div class="card" id="dashboard-card" style="display:none;">
+    <h2>User Dashboard</h2>
+    <p class="subtitle">Session Active &bull; Authenticated via JWT</p>
+
+    <div class="profile-item">
+      <span class="profile-label">User ID:</span>
+      <span class="profile-val" id="prof-id">-</span>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Role:</span>
+      <span class="profile-val" id="prof-role">-</span>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Name:</span>
+      <span class="profile-val" id="prof-name">-</span>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Email:</span>
+      <span class="profile-val" id="prof-email">-</span>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Phone:</span>
+      <span class="profile-val" id="prof-phone">-</span>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Linked Providers:</span>
+      <span class="profile-val" id="prof-providers">-</span>
+    </div>
+
+    <!-- MERGE / LINK / UPDATE ACCOUNT SECTION -->
+    <div style="margin-top:16px; padding:12px; background:#f6f8fa; border-radius:8px; border:1px solid #d0d7de;">
+      <div style="font-size:13px; font-weight:600; color:#24292f; margin-bottom:8px;">⚙️ Manage Contacts</div>
+      <div style="display:flex; gap:8px;">
+        <button id="btn-show-link-email" onclick="toggleLinkBox('email')" style="flex:1; padding:7px; font-size:12px; font-weight:600; cursor:pointer;">+ Link Email</button>
+        <button id="btn-show-link-phone" onclick="toggleLinkBox('phone')" style="flex:1; padding:7px; font-size:12px; font-weight:600; cursor:pointer;">+ Link Phone</button>
+      </div>
+
+      <div id="box-link-email" style="display:none; margin-top:10px;">
+        <input type="email" id="link-email-input" placeholder="New email address" style="margin-bottom:6px;">
+        <input type="password" id="link-pwd-input" placeholder="Set / confirm password (min 6 chars)" style="margin-bottom:6px;">
+        <button class="submit-btn" style="padding:7px; font-size:12px;" onclick="submitLinkEmail()">Save Email</button>
+      </div>
+
+      <div id="box-link-phone" style="display:none; margin-top:10px;">
+        <input type="tel" id="link-phone-input" placeholder="+91 9876543210" style="margin-bottom:6px;">
+        <input type="text" id="link-otp-input" placeholder="OTP code" style="margin-bottom:6px;">
+        <div style="display:flex; gap:6px;">
+          <button class="submit-btn" style="padding:7px; font-size:12px; flex:1;" onclick="sendLinkPhoneOTP()">1. Send OTP</button>
+          <button class="submit-btn" style="padding:7px; font-size:12px; flex:1; background:#1a7f37;" onclick="submitLinkPhone()">2. Verify & Save</button>
+        </div>
+      </div>
+      <div id="link-status" style="font-size:12px; margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- ADMIN ONLY SECTION -->
+    <div class="admin-panel" id="admin-section" style="display:none;">
+      <h3>
+        <span>🛡️ Admin Panel</span>
+        <button onclick="refreshAdminUsers()" style="font-size:11px; padding:3px 8px; cursor:pointer;">Refresh</button>
+      </h3>
+      <p style="font-size:12px; color:#57606a; margin-bottom:8px;">Only accounts with <code>admin</code> role can view this list.</p>
+      
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Email/Phone</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody id="admin-user-list">
+          <tr><td colspan="3">Loading users...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+
+  <script>
+    let isRegisterMode = false;
+    let otpRequested = false;
+    let activeResetToken = null;
+
+    // --- CHECK SESSION ON LOAD ---
+    window.addEventListener('DOMContentLoaded', async () => {
+      const params = new URLSearchParams(window.location.search);
+      const resetToken = params.get('reset_token');
+      const oauthToken = params.get('token');
+
+      if (resetToken) {
+        activeResetToken = resetToken;
+        showResetView();
+        return;
+      }
+
+      if (oauthToken) {
+        localStorage.setItem('auth_token', oauthToken);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      const savedToken = localStorage.getItem('auth_token');
+      if (savedToken) {
+        await loadDashboard(savedToken);
+      }
+    });
+
+    async function loadDashboard(token) {
+      try {
+        const res = await fetch('/api/user/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const u = data.user;
+          document.getElementById('prof-id').textContent = u.id;
+          document.getElementById('prof-name').textContent = u.full_name || 'N/A';
+          document.getElementById('prof-email').textContent = u.email || 'N/A';
+          document.getElementById('prof-phone').textContent = u.phone || 'N/A';
+
+          // Dynamically adjust button labels based on whether contact already exists
+          const emailBtn = document.getElementById('btn-show-link-email');
+          const phoneBtn = document.getElementById('btn-show-link-phone');
+          if (emailBtn) emailBtn.textContent = u.email ? '✏️ Change Email' : '+ Link Email';
+          if (phoneBtn) phoneBtn.textContent = u.phone ? '✏️ Change Phone' : '+ Link Phone';
+
+          const roleEl = document.getElementById('prof-role');
+          const isUserAdmin = (u.role === 'admin');
+          roleEl.innerHTML = `<span class="badge ${isUserAdmin ? 'badge-admin' : 'badge-user'}">${u.role || 'user'}</span>`;
+
+          const provBox = document.getElementById('prof-providers');
+          provBox.innerHTML = '';
+          if (data.linked_providers && data.linked_providers.length > 0) {
+            data.linked_providers.forEach(p => {
+              provBox.innerHTML += `<span class="badge badge-provider">${p}</span>`;
+            });
+          } else {
+            provBox.innerHTML = '<span class="badge badge-none">Direct</span>';
+          }
+
+          // Show Admin Panel if user is Admin
+          if (isUserAdmin) {
+            document.getElementById('admin-section').style.display = 'block';
+            await refreshAdminUsers();
+          } else {
+            document.getElementById('admin-section').style.display = 'none';
+          }
+
+          document.getElementById('auth-card').style.display = 'none';
+          document.getElementById('dashboard-card').style.display = 'block';
+        } else {
+          localStorage.removeItem('auth_token');
+        }
+      } catch (err) {
+        console.error('Session error:', err);
+      }
+    }
+
+    async function refreshAdminUsers() {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch('/api/admin/users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById('admin-user-list');
+        tbody.innerHTML = '';
+
+        if (res.ok && data.users) {
+          data.users.forEach(u => {
+            tbody.innerHTML += `
+              <tr>
+                <td>${u.id}</td>
+                <td>${u.email || u.phone}</td>
+                <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role}</span></td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = `<tr><td colspan="3" style="color:red;">${data.detail || 'Access Denied'}</td></tr>`;
+        }
+      } catch (e) {
+        console.error('Failed to load admin user list', e);
+      }
+    }
+
+    function toggleLinkBox(type) {
+      document.getElementById('box-link-email').style.display = (type === 'email' ? 'block' : 'none');
+      document.getElementById('box-link-phone').style.display = (type === 'phone' ? 'block' : 'none');
+      document.getElementById('link-status').style.display = 'none';
+    }
+
+    async function submitLinkEmail() {
+      const email = document.getElementById('link-email-input').value.trim();
+      const password = document.getElementById('link-pwd-input').value.trim();
+      const token = localStorage.getItem('auth_token');
+      const status = document.getElementById('link-status');
+
+      if (!email || !password) {
+        status.innerHTML = '<span style="color:red;">Enter both email and password</span>';
+        status.style.display = 'block';
+        return;
+      }
+
+      const res = await fetch('/api/user/link-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        status.innerHTML = `<span style="color:green;">${data.message}</span>`;
+        await loadDashboard(token);
+      } else {
+        status.innerHTML = `<span style="color:red;">${data.detail || 'Failed to link email'}</span>`;
+      }
+      status.style.display = 'block';
+    }
+
+    async function sendLinkPhoneOTP() {
+      const phone = document.getElementById('link-phone-input').value.trim();
+      const status = document.getElementById('link-status');
+      if (!phone) {
+        status.innerHTML = '<span style="color:red;">Enter phone number first</span>';
+        status.style.display = 'block';
+        return;
+      }
+
+      const res = await fetch('/api/auth/phone/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('link-otp-input').value = data.otp_test_hint;
+        status.innerHTML = `<span style="color:blue;">OTP sent! Code: ${data.otp_test_hint}</span>`;
+      } else {
+        status.innerHTML = `<span style="color:red;">${data.detail || 'Error sending OTP'}</span>`;
+      }
+      status.style.display = 'block';
+    }
+
+    async function submitLinkPhone() {
+      const phone = document.getElementById('link-phone-input').value.trim();
+      const otp = document.getElementById('link-otp-input').value.trim();
+      const token = localStorage.getItem('auth_token');
+      const status = document.getElementById('link-status');
+
+      const res = await fetch('/api/user/link-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ phone, otp })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        status.innerHTML = `<span style="color:green;">${data.message}</span>`;
+        await loadDashboard(token);
+      } else {
+        status.innerHTML = `<span style="color:red;">${data.detail || 'Failed to link phone'}</span>`;
+      }
+      status.style.display = 'block';
+    }
+
+    function resetPhoneForm() {
+      otpRequested = false;
+      const otpGroup = document.getElementById('otp-input-group');
+      const btn = document.getElementById('btn-phone');
+      if (otpGroup) otpGroup.style.display = 'none';
+      if (btn) btn.textContent = 'Send OTP';
+      const otpInput = document.getElementById('otp');
+      if (otpInput) otpInput.value = '';
+    }
+
+    function logout() {
+      localStorage.removeItem('auth_token');
+      resetPhoneForm();
+      document.getElementById('dashboard-card').style.display = 'none';
+      document.getElementById('auth-card').style.display = 'block';
+      hideStatus();
+    }
+
+    function showResetView() {
+      document.getElementById('social-buttons').style.display = 'none';
+      document.getElementById('auth-tabs').style.display = 'none';
+      document.getElementById('form-phone').style.display = 'none';
+      document.getElementById('form-email').style.display = 'none';
+      document.getElementById('form-reset').style.display = 'block';
+      document.getElementById('card-title').textContent = 'Set New Password';
+      document.getElementById('card-subtitle').textContent = 'Enter your new password below';
+    }
+
+    function switchTab(tab) {
+      resetPhoneForm();
+      document.getElementById('tab-phone').classList.toggle('active', tab === 'phone');
+      document.getElementById('tab-email').classList.toggle('active', tab === 'email');
+      document.getElementById('form-phone').style.display = tab === 'phone' ? 'block' : 'none';
+      document.getElementById('form-email').style.display = tab === 'email' ? 'block' : 'none';
+      document.getElementById('form-forgot').style.display = 'none';
+      hideStatus();
+    }
+
+    function toggleRegisterMode() {
+      isRegisterMode = !isRegisterMode;
+      document.getElementById('group-name').style.display = isRegisterMode ? 'block' : 'none';
+      document.getElementById('btn-email-submit').textContent = isRegisterMode ? 'Create Account' : 'Sign In';
+      document.getElementById('link-toggle-mode').textContent = isRegisterMode ? 'Already have an account? Sign In' : 'Need an account? Sign Up';
+      document.getElementById('link-forgot').style.display = isRegisterMode ? 'none' : 'inline';
+    }
+
+    function showForgotPassword() {
+      document.getElementById('social-buttons').style.display = 'none';
+      document.getElementById('auth-tabs').style.display = 'none';
+      document.getElementById('form-phone').style.display = 'none';
+      document.getElementById('form-email').style.display = 'none';
+      document.getElementById('form-forgot').style.display = 'block';
+      document.getElementById('card-title').textContent = 'Reset Password';
+      document.getElementById('card-subtitle').textContent = 'We will send a reset link to your email';
+      hideStatus();
+    }
+
+    function cancelForgotPassword() {
+      document.getElementById('social-buttons').style.display = 'block';
+      document.getElementById('auth-tabs').style.display = 'flex';
+      document.getElementById('form-forgot').style.display = 'none';
+      document.getElementById('form-email').style.display = 'block';
+      document.getElementById('card-title').textContent = 'Welcome Back';
+      document.getElementById('card-subtitle').textContent = 'Choose your preferred login method';
+      hideStatus();
+    }
+
+    function formatErrorMessage(detail) {
+      if (!detail) return 'An error occurred';
+      if (typeof detail === 'string') return detail;
+      if (Array.isArray(detail)) {
+        return detail.map(err => err.msg || JSON.stringify(err)).join(', ');
+      }
+      if (typeof detail === 'object') {
+        return detail.msg || JSON.stringify(detail);
+      }
+      return String(detail);
+    }
+
+    function showStatus(html, type = 'info') {
+      const el = document.getElementById('status');
+      el.innerHTML = html;
+      el.className = `status-msg status-${type}`;
+      el.style.display = 'block';
+    }
+
+    function hideStatus() {
+      document.getElementById('status').style.display = 'none';
+    }
+
+    // --- Phone OTP ---
+    async function handlePhoneAuth() {
+      const phone = document.getElementById('phone').value.trim();
+      if (!phone) return showStatus('Please enter your phone number', 'error');
+
+      const otpGroup = document.getElementById('otp-input-group');
+      const btn = document.getElementById('btn-phone');
+
+      if (!otpRequested) {
+        try {
+          const res = await fetch('/api/auth/phone/send-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            otpRequested = true;
+            otpGroup.style.display = 'block';
+            btn.textContent = 'Verify & Login';
+            document.getElementById('otp').value = data.otp_test_hint;
+            showStatus(`OTP Sent! Test code: <strong>${data.otp_test_hint}</strong> (also printed in terminal)`, 'info');
+          } else {
+            showStatus(formatErrorMessage(data.detail) || 'Failed to send OTP', 'error');
+          }
+        } catch (e) {
+          showStatus('Error communicating with server', 'error');
+        }
+      } else {
+        const otp = document.getElementById('otp').value.trim();
+        try {
+          const res = await fetch('/api/auth/phone/verify-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone, otp })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            resetPhoneForm();
+            localStorage.setItem('auth_token', data.access_token);
+            await loadDashboard(data.access_token);
+          } else {
+            showStatus(formatErrorMessage(data.detail) || 'Invalid OTP', 'error');
+          }
+        } catch (e) {
+          showStatus('Error verifying OTP', 'error');
+        }
+      }
+    }
+
+    // --- Email Auth ---
+    async function handleEmailAuth() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const fullName = document.getElementById('full-name').value.trim();
+
+      if (!email || !password) return showStatus('Please enter both email and password', 'error');
+
+      const endpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+      const payload = isRegisterMode ? { email, password, full_name: fullName } : { email, password };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('auth_token', data.access_token);
+          await loadDashboard(data.access_token);
+        } else {
+          showStatus(formatErrorMessage(data.detail) || 'Authentication failed', 'error');
+        }
+      } catch (e) {
+        showStatus('Error communicating with server', 'error');
+      }
+    }
+
+    // --- Forgot Password ---
+    async function handleForgotPassword() {
+      const email = document.getElementById('forgot-email').value.trim();
+      if (!email) return showStatus('Please enter your email', 'error');
+
+      try {
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showStatus(`${data.message}<br><br><strong>Test Reset Link:</strong><br><a href="${data.test_reset_link}">${data.test_reset_link}</a>`, 'info');
+        } else {
+          showStatus(formatErrorMessage(data.detail) || 'Request failed', 'error');
+        }
+      } catch (e) {
+        showStatus('Error sending reset link', 'error');
+      }
+    }
+
+    // --- Reset Password ---
+    async function handleResetPassword() {
+      const newPassword = document.getElementById('new-password').value.trim();
+      if (!newPassword || newPassword.length < 6) return showStatus('Password must be at least 6 characters', 'error');
+
+      try {
+        const res = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ token: activeResetToken, new_password: newPassword })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showStatus(`${data.message} <a href="/">Click here to sign in</a>`, 'success');
+        } else {
+          showStatus(formatErrorMessage(data.detail) || 'Reset failed', 'error');
+        }
+      } catch (e) {
+        showStatus('Error resetting password', 'error');
+      }
+    }
+
+    // --- Social OAuth ---
+    function loginOAuth(provider) {
+      window.location.href = `/api/auth/oauth/${provider}`;
+    }
+  </script>
+</body>
+</html>
