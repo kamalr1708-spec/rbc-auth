@@ -16,6 +16,7 @@ from auth_utils import (
     decode_access_token,
     create_password_reset_token,
     create_state_token,
+    verify_state_token,
     generate_otp,
     get_or_create_oauth_user,
     normalize_phone,
@@ -25,9 +26,11 @@ init_db()
 
 app = FastAPI(title=settings.APP_NAME)
 
+allowed_origins = [settings.WEBSITE_DOMAIN] if settings.ENV == "production" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -203,18 +206,19 @@ async def forgot_password(req: ForgotPasswordRequest):
         except Exception as e:
             print(f"[Brevo Error] {e}. Falling back to console.")
 
-    # Fallback to terminal & screen
-    print("\n" + "="*60)
-    print(f" [PASSWORD RESET LINK] For {email}:")
-    print(f" {reset_link}")
-    print("="*60 + "\n")
-
-    return {
+    response_data = {
         "status": "OK",
         "message": "If this email is registered, a password reset link has been sent to your inbox." if email_sent else "If this email is registered, a password reset link has been sent.",
-        "test_reset_link": reset_link,
-        "test_token": reset_token
     }
+    if settings.ENV != "production":
+        print("\n" + "="*60)
+        print(f" [PASSWORD RESET LINK] For {email}:")
+        print(f" {reset_link}")
+        print("="*60 + "\n")
+        response_data["test_reset_link"] = reset_link
+        response_data["test_token"] = reset_token
+
+    return response_data
 
 @app.post("/api/auth/reset-password")
 async def reset_password(req: ResetPasswordRequest):
@@ -298,16 +302,17 @@ async def send_phone_otp(req: SendOTPRequest):
         except Exception as e:
             print(f"[Fast2SMS Error] {e}. Falling back to console.")
 
-    # Fallback log to terminal
-    print("\n" + "="*50)
-    print(f" [PHONE OTP] Sent to {phone}: {otp}")
-    print("="*50 + "\n")
-
-    return {
+    response_data = {
         "status": "OK",
         "message": f"OTP sent via SMS to {phone}" if sms_sent else "OTP sent successfully! Check terminal.",
-        "otp_test_hint": otp
     }
+    if settings.ENV != "production":
+        print("\n" + "="*50)
+        print(f" [PHONE OTP] Sent to {phone}: {otp}")
+        print("="*50 + "\n")
+        response_data["otp_test_hint"] = otp
+
+    return response_data
 
 @app.post("/api/auth/phone/verify-otp")
 async def verify_phone_otp(req: VerifyOTPRequest):
@@ -359,24 +364,18 @@ async def verify_phone_otp(req: VerifyOTPRequest):
     token = create_access_token({"sub": user_id, "phone": phone, "role": role})
     return {"status": "OK", "message": "Phone login successful", "access_token": token, "role": role}
 
-# In-memory store for active OAuth CSRF states
-OAUTH_STATES = set()
-
 # ----------------- 4. SOCIAL OAUTH (GOOGLE, GITHUB, FACEBOOK) -----------------
 @app.get("/api/auth/oauth/github")
 async def oauth_github_redirect():
     if not settings.GITHUB_CLIENT_ID:
         return JSONResponse({"status": "info", "message": "Set GITHUB_CLIENT_ID & GITHUB_CLIENT_SECRET in .env for live GitHub login."})
     state = create_state_token()
-    OAUTH_STATES.add(state)
     github_url = f"https://github.com/login/oauth/authorize?client_id={settings.GITHUB_CLIENT_ID}&scope=user:email&state={state}"
     return RedirectResponse(github_url)
 
 @app.get("/api/auth/github/callback")
 async def oauth_github_callback(code: str = Query(...), state: Optional[str] = Query(None)):
-    if state and state in OAUTH_STATES:
-        OAUTH_STATES.remove(state)
-    elif settings.ENV == "production":
+    if settings.ENV == "production" and not verify_state_token(state):
         raise HTTPException(status_code=400, detail="Invalid OAuth state (CSRF detected)")
 
     async with httpx.AsyncClient() as client:
@@ -414,7 +413,6 @@ async def oauth_google_redirect():
     if not settings.GOOGLE_CLIENT_ID:
         return JSONResponse({"status": "info", "message": "Set GOOGLE_CLIENT_ID in .env for live Google login."})
     state = create_state_token()
-    OAUTH_STATES.add(state)
     google_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth?client_id={settings.GOOGLE_CLIENT_ID}"
         f"&redirect_uri={settings.API_DOMAIN}/api/auth/google/callback"
@@ -426,9 +424,7 @@ async def oauth_google_redirect():
 
 @app.get("/api/auth/google/callback")
 async def oauth_google_callback(code: str = Query(...), state: Optional[str] = Query(None)):
-    if state and state in OAUTH_STATES:
-        OAUTH_STATES.remove(state)
-    elif settings.ENV == "production":
+    if settings.ENV == "production" and not verify_state_token(state):
         raise HTTPException(status_code=400, detail="Invalid OAuth state (CSRF detected)")
 
     async with httpx.AsyncClient() as client:
@@ -465,8 +461,9 @@ async def oauth_google_callback(code: str = Query(...), state: Optional[str] = Q
 
 @app.get("/api/auth/oauth/facebook")
 async def oauth_facebook_redirect():
-    # If no live Meta credentials yet, activate Mock/Dev Fallback
     if not settings.FACEBOOK_CLIENT_ID or not settings.FACEBOOK_CLIENT_SECRET:
+        if settings.ENV == "production":
+            raise HTTPException(status_code=503, detail="Facebook OAuth is not configured")
         user_info = get_or_create_oauth_user(
             provider="facebook",
             provider_user_id="fb_mock_998877",

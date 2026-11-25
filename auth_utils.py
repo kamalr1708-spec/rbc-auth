@@ -32,8 +32,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # ----------------- JWT TOKENS (SESSION & RESET) -----------------
 def create_state_token() -> str:
-    """Generates a secure random state token for OAuth CSRF protection."""
-    return secrets.token_urlsafe(24)
+    """Generates a short-lived signed JWT state token for stateless OAuth CSRF protection."""
+    return create_access_token({"purpose": "oauth_state", "nonce": secrets.token_urlsafe(12)}, expires_minutes=10)
+
+def verify_state_token(state: Optional[str]) -> bool:
+    """Verifies an OAuth state token without requiring shared in-memory state."""
+    if not state:
+        return False
+    payload = decode_access_token(state)
+    return bool(payload and payload.get("purpose") == "oauth_state")
 def create_access_token(data: Dict[str, Any], expires_minutes: Optional[int] = None) -> str:
     """Creates a signed JWT session token."""
     to_encode = data.copy()
